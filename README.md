@@ -6,6 +6,75 @@ Deploy new versions of a web app with **zero downtime**. If the new version is u
 - **`nginx`**: the public entry point at <http://localhost:8080>
 - **`deploy.py`**: the deploy tool
 
+## Getting started
+
+**You need:** Docker (or Podman), Docker Compose, and Python 3.10+.
+
+### 1. Install dependencies
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 2. Start the baseline environment (v1.0.0)
+
+```bash
+docker-compose up -d
+```
+
+This starts nginx and the app at v1.0.0. The first run builds the image, so it takes a few seconds.
+
+```bash
+curl localhost:8080/version
+# {"version":"v1.0.0"}
+```
+
+### 3. Trigger a successful deployment
+
+```bash
+python deploy.py --deploy v2.0.0
+```
+
+The new version starts next to the old one, passes 3 health checks in a row, and then traffic switches over:
+
+```text
+[4/7 health] PASSED (3 OKs in a row) -> {"status":"ok","version":"v2.0.0"}
+[5/7 cutover] Routing traffic (Compose baseline) -> rc-web-v2.0.0-d77f26
+[6/7 verify] http://localhost:8080/version -> v2.0.0
+[7/7 cleanup] Removing rc-web-baseline (superseded)
+SUCCESS: v2.0.0 is live at http://localhost:8080
+```
+
+```bash
+curl localhost:8080/version
+# {"version":"v2.0.0"}
+```
+
+### 4. Trigger a failed deployment (auto-rollback)
+
+```bash
+python deploy.py --deploy v3.0.0 --fail-healthcheck --timeout 10
+echo "exit code: $?"
+```
+
+`--fail-healthcheck` makes the new version's `/health` return `500`. It never becomes healthy, so it is removed and traffic never leaves v2.0.0:
+
+```text
+[4/7 health] Attempt 9 not healthy yet (wget: server returned error: HTTP/1.1 500 Internal Server Error)
+DEPLOY FAILED for v3.0.0: health check did not pass within 10s (...)
+[rollback] Removing rc-web-v3.0.0-5d9497 (failed release)
+[rollback] Done. Traffic remains on v2.0.0 (rc-web-v2.0.0-d77f26)
+exit code: 1
+```
+
+```bash
+curl localhost:8080/version
+# {"version":"v2.0.0"}
+```
+
+**Also useful:** `python deploy.py --status` shows what's live. In a browser, <http://localhost:8080/version> is a blue page and <http://localhost:8080/health> a green one.
+
 ## How it works
 
 ```mermaid
@@ -59,37 +128,6 @@ To switch versions, `deploy.py` rewrites this file and runs `nginx -s reload`.
 
 **Evidence:** [tests/stress_test.py](tests/stress_test.py) runs 22 deploys, rollbacks and kills under constant traffic. Result: 85,768 requests, **0 errors**.
 
-## Quick start
-
-You need Docker (or Podman), Docker Compose, and Python 3.10+.
-
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-
-python deploy.py --deploy v1.0.0     # first version
-python deploy.py --deploy v1.3.0     # upgrade, zero downtime
-python deploy.py --status            # what's live?
-```
-
-Open <http://localhost:8080/version> (blue page) or <http://localhost:8080/health> (green page).
-
-### Try a failed deploy
-
-```bash
-python deploy.py --deploy v3.0.0 --fail-healthcheck --timeout 10
-```
-
-The new version reports unhealthy, so it is removed, the tool exits with code `1`, and v1.3.0 keeps serving.
-
-### Run without deploy.py
-
-```bash
-docker-compose --profile standalone up -d --build
-```
-
-This runs one fixed version with no deploy tool. If you later run `deploy.py`, it takes over and removes the standalone container.
-
 ## Endpoints
 
 | URL | What it returns | Try it |
@@ -109,7 +147,7 @@ Browsers see colored pages: `/version` is **blue**, `/health` is **green** (or *
 
 ```bash
 curl localhost:8080/version
-# {"version":"v1.3.0"}
+# {"version":"v2.0.0"}
 ```
 
 **`/health`**: is the live version healthy?
@@ -118,7 +156,7 @@ curl localhost:8080/version
 curl -i localhost:8080/health
 # HTTP/1.1 200 OK
 # ...
-# {"status":"ok","version":"v1.3.0"}
+# {"status":"ok","version":"v2.0.0"}
 
 # Just the status code:
 curl -s -o /dev/null -w '%{http_code}\n' localhost:8080/health
@@ -133,7 +171,7 @@ curl -i localhost:8080/app     # shows the redirect itself
 # location: /health
 
 curl -L localhost:8080/app     # -L follows it
-# {"status":"ok","version":"v1.3.0"}
+# {"status":"ok","version":"v2.0.0"}
 ```
 
 **`POST /admin/health`**: simulate a failure, then recover
@@ -147,7 +185,7 @@ curl -X POST localhost:8080/admin/health -H 'Content-Type: application/json' -d 
 curl -i localhost:8080/health
 # HTTP/1.1 500 Internal Server Error
 # ...
-# {"status":"unhealthy","reason":"FAIL_HEALTHCHECK enabled","version":"v1.3.0"}
+# {"status":"unhealthy","reason":"FAIL_HEALTHCHECK enabled","version":"v2.0.0"}
 
 # 3. Make it healthy again (don't forget this step!)
 curl -X POST localhost:8080/admin/health -H 'Content-Type: application/json' -d '{"fail": false}'
@@ -240,11 +278,11 @@ These run the linter, formatter and type checker; their settings are in `pyproje
 | Problem | Fix |
 | --- | --- |
 | `docker compose` says `unknown shorthand flag: 'd'` | Use `docker-compose` (with a hyphen) instead |
-| `502 Bad Gateway` | Nothing is deployed yet. Run `python deploy.py --deploy v1.0.0` |
+| `502 Bad Gateway` | The app isn't running. Start the baseline with `docker-compose up -d` |
 | Browser shows "Not Found" | Use a real path, like `/version` or `/health` |
 | App code changes don't show up | That tag's image was built before your change. Add `--build` to the deploy command |
 | Port 8080 is in use | Run with `NGINX_PORT=9090` in front of the command |
-| Start completely over | `docker rm -f $(docker ps -aq --filter label=rc.managed=true); docker-compose --profile standalone down; rm nginx/upstream/active.conf` |
+| Start completely over | `docker rm -f $(docker ps -aq --filter label=rc.managed=true); docker-compose down; rm nginx/upstream/active.conf` |
 
 ## Project files
 
@@ -253,7 +291,7 @@ These run the linter, formatter and type checker; their settings are in `pyproje
 | `app/` | Web service and its Dockerfile |
 | `deploy.py` | Starts the deploy tool (a few lines) |
 | `release_coordinator/` | The deploy tool's code, one small file per job. Start with `__init__.py` (big picture, edge cases), then `deployer.py` (the 7 steps in order) |
-| `docker-compose.yml` | Runs nginx (and the optional standalone app) |
+| `docker-compose.yml` | Starts the baseline: nginx + the app at v1.0.0 |
 | `nginx/upstream/active.conf` | Which version is live. Generated: not in git, created from `active.placeholder.conf` on first start, then updated by every deploy |
 | `nginx/init/` | Startup script that creates `active.conf` if it's missing |
 | `tests/traffic_check.py` | Sends traffic during a deploy to prove nothing fails |

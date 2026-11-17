@@ -9,8 +9,8 @@
 # in the environment.
 #
 # The live backend is defined in /etc/nginx/upstream/active.conf:
-#   * Before any deploy: a placeholder that routes to the Compose "standalone"
-#     container (rc-web-standalone), if you started it.
+#   * Before any deploy: a placeholder that routes to the v1.0.0 baseline
+#     container (rc-web-baseline) that `docker-compose up -d` starts.
 #   * After a deploy: written by deploy.py to point at the version it put live.
 # To cut over, deploy.py rewrites that file and runs `nginx -s reload`. A reload
 # is graceful: new workers take new requests, old workers finish in-flight ones,

@@ -69,7 +69,6 @@ EDGE CASES (what happens if...)
 GOOD TO KNOW
     * Works with Docker or Podman (anything that speaks the Docker API).
     * We only ever touch containers labelled rc.managed=true (our own).
-    * If someone ran `docker-compose --profile standalone up`, its container
-      (rc-web-standalone) is treated as the "old version" and replaced on the
-      first deploy.
+    * `docker-compose up -d` starts the v1.0.0 baseline (rc-web-baseline).
+      The first deploy treats it as the "old version" and replaces it.
 """

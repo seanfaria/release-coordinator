@@ -16,10 +16,10 @@ from docker.models.containers import Container
 from . import containers, health, recovery, upstream
 from . import proxy as nginx
 from .config import (
+    BASELINE_CONTAINER,
     EXIT_DEPLOY_FAILED,
     EXIT_OK,
     FAILED_STOP_TIMEOUT,
-    STANDALONE_CONTAINER,
     TAG_RE,
     DeployError,
     PreconditionError,
@@ -59,7 +59,7 @@ def deploy(client: docker.DockerClient, args: argparse.Namespace) -> int:
             proxy, candidate, timeout=args.timeout, interval=args.interval, required=args.healthy_checks
         )
 
-        log.info("[5/7 cutover] Routing traffic %s -> %s", previous.container or "(Compose fallback)", candidate.name)
+        log.info("[5/7 cutover] Routing traffic %s -> %s", previous.container or "(Compose baseline)", candidate.name)
         traffic_switched = True  # set before switching, so a half-done switch is still undone
         nginx.switch_traffic(proxy, upstream.render(str(candidate.name), tag))
 
@@ -97,7 +97,7 @@ def rollback(proxy: Container, candidate: Container | None, previous: ActiveStat
     if restore_conf is not None:
         try:
             nginx.switch_traffic(proxy, restore_conf)
-            log.warning("[rollback] Traffic restored to %s", previous.container or STANDALONE_CONTAINER)
+            log.warning("[rollback] Traffic restored to %s", previous.container or BASELINE_CONTAINER)
         except Exception:
             log.critical("[rollback] FAILED to restore the previous nginx config; check active.conf", exc_info=True)
 
@@ -111,7 +111,7 @@ def rollback(proxy: Container, candidate: Container | None, previous: ActiveStat
 def cleanup(client: docker.DockerClient, candidate: Container, args: argparse.Namespace) -> None:
     """
     Step 7, after a successful cutover: remove every container we own except
-    the new one (the old version, the Compose standalone container if it was
+    the new one (the old version, the Compose baseline container if it was
     serving, any leftovers), then delete old images.
     """
     old = [c for c in containers.managed(client) if c.id != candidate.id]
@@ -121,10 +121,10 @@ def cleanup(client: docker.DockerClient, candidate: Container, args: argparse.Na
         time.sleep(args.drain_seconds)
         for c in old:
             containers.remove(c, step="[7/7 cleanup]", reason="superseded")
-        if any(c.name == STANDALONE_CONTAINER for c in old):
+        if any(c.name == BASELINE_CONTAINER for c in old):
             log.info(
-                "[7/7 cleanup] deploy.py now owns traffic. Don't run `--profile standalone up` again, "
-                "or the standalone container will be recreated (it would not get traffic)."
+                "[7/7 cleanup] deploy.py now owns traffic. If you run `docker-compose up` again, the baseline "
+                "container comes back without traffic; the next deploy removes it."
             )
 
     # Deleting images is housekeeping: if it fails, the deploy still succeeded.

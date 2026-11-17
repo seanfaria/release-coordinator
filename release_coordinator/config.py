@@ -18,7 +18,7 @@ NETWORK = "release-coordinator"  # Docker network shared with nginx
 PROXY_CONTAINER = "rc-nginx"  # the nginx container's name
 APP_PORT = 8000  # port the app listens on inside its container
 CONTAINER_PREFIX = "rc-web-"  # app containers are named rc-web-<tag>-<random>
-STANDALONE_CONTAINER = "rc-web-standalone"  # started by Compose's "standalone" profile
+BASELINE_CONTAINER = "rc-web-baseline"  # the v1.0.0 baseline started by `docker-compose up`
 LABEL_MANAGED = "rc.managed"  # marks containers we own
 LABEL_VERSION = "rc.version"  # records a container's version
 

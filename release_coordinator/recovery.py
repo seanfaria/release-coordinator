@@ -12,7 +12,7 @@ from docker.models.containers import Container
 
 from . import containers
 from . import proxy as nginx
-from .config import STANDALONE_CONTAINER, DeployError, PreconditionError, log
+from .config import BASELINE_CONTAINER, DeployError, PreconditionError, log
 from .upstream import ActiveState
 
 
@@ -47,7 +47,7 @@ def recover(client: docker.DockerClient, proxy: Container, active: ActiveState) 
       2. Remove our containers that aren't live. A killed deploy can leave its
          new container running with no traffic.
     """
-    live_name = active.container or STANDALONE_CONTAINER
+    live_name = active.container or BASELINE_CONTAINER
     ours = containers.managed(client)
     live = next((c for c in ours if c.name == live_name), None)
 

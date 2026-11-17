@@ -11,7 +11,7 @@ import os
 import re
 from dataclasses import dataclass
 
-from .config import APP_PORT, STANDALONE_CONTAINER, UPSTREAM_FILE
+from .config import APP_PORT, BASELINE_CONTAINER, UPSTREAM_FILE
 
 
 @dataclass
@@ -77,4 +77,4 @@ def describe(active: ActiveState) -> str:
     """A human-readable description of what is live, for log messages."""
     if active.container:
         return f"{active.version} ({active.container})"
-    return f"Compose fallback '{STANDALONE_CONTAINER}', if running (nothing deployed by deploy.py yet)"
+    return f"Compose baseline '{BASELINE_CONTAINER}', if running (nothing deployed by deploy.py yet)"

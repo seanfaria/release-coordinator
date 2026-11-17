@@ -15,13 +15,13 @@ from docker.errors import DockerException
 
 from . import containers, deployer, recovery, upstream
 from .config import (
+    BASELINE_CONTAINER,
     EXIT_DEPLOY_FAILED,
     EXIT_OK,
     EXIT_PRECONDITION,
     HEALTH_REQUEST_TIMEOUT,
     LABEL_VERSION,
     LOCK_FILE,
-    STANDALONE_CONTAINER,
     PreconditionError,
     log,
 )
@@ -89,7 +89,7 @@ def status(client: docker.DockerClient, args: argparse.Namespace) -> int:
     print("Managed containers:  (* = receiving traffic)")
     ours = containers.managed(client)
     for c in ours:
-        marker = "*" if c.name == (active.container or STANDALONE_CONTAINER) else " "
+        marker = "*" if c.name == (active.container or BASELINE_CONTAINER) else " "
         print(f"  {marker} {c.name:<32} {c.labels.get(LABEL_VERSION, '?'):<12} {c.status}")
     if not ours:
         print("  (none)")

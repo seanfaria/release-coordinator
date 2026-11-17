@@ -217,7 +217,7 @@ def run_and_kill(argv: list[str], sig: signal.Signals) -> tuple[int, list[str]]:
 
 def leftover_count() -> int:
     """How many containers we own are NOT the live one."""
-    live = upstream.read_active().container or config.STANDALONE_CONTAINER
+    live = upstream.read_active().container or config.BASELINE_CONTAINER
     return sum(1 for c in containers.managed(docker.from_env()) if c.name != live)
 
 

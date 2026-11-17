@@ -1,17 +1,15 @@
 # -----------------------------------------------------------------------------
-# Two ways to run this project:
+# Baseline environment: nginx (the public entry point) + the app at v1.0.0.
 #
-# A) With the Release Coordinator CLI (blue/green, zero downtime, rollback):
-#      python deploy.py --deploy v1.0.0     # starts the proxy for you if needed
-#      python deploy.py --deploy v2.0.0
-#    (`docker-compose up -d` also works; it starts only the proxy.)
+#   docker-compose up -d          # http://localhost:8080/version -> v1.0.0
 #
-# B) Compose only, no CLI (a single fixed version, good for quick local runs):
-#      docker-compose --profile standalone up -d --build
-#      APP_VERSION=v1.2.3 docker-compose --profile standalone up -d --build
+# Then deploy new versions with the CLI (zero downtime, auto-rollback):
 #
-# You can start with B and switch to A later: the first deploy.py run takes
-# over traffic and removes the standalone container. After that, use only A.
+#   python deploy.py --deploy v2.0.0
+#
+# The first deploy takes over traffic from the baseline container and removes
+# it. If you run `docker-compose up -d` again later, the baseline container
+# comes back but gets no traffic, and the next deploy removes it again.
 # -----------------------------------------------------------------------------
 services:
   nginx:
@@ -35,22 +33,21 @@ services:
       - ./nginx/init/10-default-upstream.sh:/docker-entrypoint.d/10-default-upstream.sh:ro
     restart: unless-stopped
 
-  # Optional app container for running WITHOUT deploy.py (profile: standalone).
-  # The labels let deploy.py recognise it and replace it on the first deploy.
+  # The v1.0.0 baseline. Until the first deploy, nginx routes here (see
+  # nginx/upstream/active.placeholder.conf). The labels let deploy.py
+  # recognise it as one of its own and replace it on the first deploy.
   web:
-    profiles: ["standalone"]
     build:
       context: ./app
       args:
-        APP_VERSION: ${APP_VERSION:-v1.0.0}
-    image: release-coordinator/web:${APP_VERSION:-v1.0.0}
-    container_name: rc-web-standalone   # the name active.placeholder.conf routes to
+        APP_VERSION: v1.0.0
+    image: release-coordinator/web:v1.0.0
+    container_name: rc-web-baseline     # the name active.placeholder.conf routes to
     environment:
-      APP_VERSION: ${APP_VERSION:-v1.0.0}
-      FAIL_HEALTHCHECK: ${FAIL_HEALTHCHECK:-false}
+      APP_VERSION: v1.0.0
     labels:
       rc.managed: "true"
-      rc.version: ${APP_VERSION:-v1.0.0}
+      rc.version: v1.0.0
     expose:
       - "8000"
     restart: unless-stopped
