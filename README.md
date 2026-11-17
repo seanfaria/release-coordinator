@@ -53,7 +53,7 @@ To switch versions, `deploy.py` rewrites this file and runs `nginx -s reload`.
 2. **Health gate:** traffic moves only after `/health` returns `200` **3 times in a row**. The check runs from inside the nginx container, the same network path users' traffic will take.
 3. **Checked config:** `nginx -t` validates the new file before it's applied, so a broken config never goes live.
 4. **Graceful reload:** `nginx -s reload` starts new workers on the new version, while the old workers finish their in-flight requests first. No connection is dropped.
-5. **Name lookup during the reload:** nginx finds the new container's address during the reload, before any new request arrives. An earlier version looked it up just *after* the reload and dropped about 1 in 22,000 requests; the stress test now guards against that.
+5. **Name lookup during the reload:** nginx finds the new container's address *during* the reload, before any new request arrives. (Looking it up just after the reload leaves a split second with no backend, which shows up as a rare 502.)
 6. **Verify, then drain:** the tool confirms the public URL shows the new version, then waits a few seconds before stopping the old container (SIGTERM, so it finishes its last requests).
 7. **Automatic rollback:** any failure, Ctrl-C or `kill` before step 6 completes puts the previous file back and removes the new container.
 
@@ -61,7 +61,7 @@ To switch versions, `deploy.py` rewrites this file and runs `nginx -s reload`.
 
 ## Quick start
 
-You need Docker (or Podman) and Python 3.10+.
+You need Docker (or Podman), Docker Compose, and Python 3.10+.
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
@@ -80,7 +80,7 @@ Open <http://localhost:8080/version> (blue page) or <http://localhost:8080/healt
 python deploy.py --deploy v3.0.0 --fail-healthcheck --timeout 10
 ```
 
-The new version reports unhealthy, so it is removed, the tool exits with code `1`, and v2.0.0 keeps serving.
+The new version reports unhealthy, so it is removed, the tool exits with code `1`, and v1.3.0 keeps serving.
 
 ### Run without deploy.py
 
@@ -176,6 +176,8 @@ curl -H 'Accept: text/html' localhost:8080/version
 
 Run `python deploy.py --help` for all options.
 
+**Exit codes:** `0` success · `1` failed and rolled back · `2` couldn't start (nothing changed)
+
 ### Old images are deleted automatically
 
 After every **successful** deploy, `deploy.py` keeps only the **3 newest** app images and deletes the older ones, so they don't fill up your disk. The image of the version that's live is never deleted.
@@ -184,8 +186,6 @@ After every **successful** deploy, `deploy.py` keeps only the **3 newest** app i
 - **Turn it off:** `python deploy.py --deploy v2.0.0 --keep-images 0`
 - **Deploying a tag whose image was deleted** still works, but the image is rebuilt from the **current** app code, not the code that tag originally had.
 - **See which images you have:** `docker images release-coordinator/web`
-
-**Exit codes:** `0` success · `1` failed and rolled back · `2` couldn't start (nothing changed)
 
 ## What happens if...
 
@@ -197,7 +197,6 @@ After every **successful** deploy, `deploy.py` keeps only the **3 newest** app i
 | It gets `kill -9`ed, or the machine loses power mid-deploy | Nothing can run at that moment, so the **next** deploy fixes it: it re-syncs nginx and removes leftover containers |
 | Port 8080 is used by another program | Stops with a clear message suggesting `NGINX_PORT=9090`, exits `2` |
 | Two deploys at once | The second one exits `2` |
-| Old images pile up | Only the newest 3 are kept (`--keep-images`) |
 
 Users keep being served by the old version in every one of these cases.
 
@@ -243,7 +242,7 @@ These run the linter, formatter and type checker; their settings are in `pyproje
 | `docker compose` says `unknown shorthand flag: 'd'` | Use `docker-compose` (with a hyphen) instead |
 | `502 Bad Gateway` | Nothing is deployed yet. Run `python deploy.py --deploy v1.0.0` |
 | Browser shows "Not Found" | Use a real path, like `/version` or `/health` |
-| No colored pages, or `/app` is missing | That version's image is older than the app code. Add `--build` to the deploy command |
+| App code changes don't show up | That tag's image was built before your change. Add `--build` to the deploy command |
 | Port 8080 is in use | Run with `NGINX_PORT=9090` in front of the command |
 | Start completely over | `docker rm -f $(docker ps -aq --filter label=rc.managed=true); docker-compose --profile standalone down; rm nginx/upstream/active.conf` |
 
