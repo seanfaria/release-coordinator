@@ -5,7 +5,7 @@ Zero-downtime checker: sends nonstop requests to the app and counts failures.
 Use it to PROVE a deploy doesn't drop any requests. Run it in one terminal
 while you deploy in another:
 
-    python scripts/traffic_check.py --duration 60     # terminal 1
+    python tests/traffic_check.py --duration 60     # terminal 1
     python deploy.py --deploy v2.0.0                  # terminal 2
 
 When it finishes it prints:
@@ -37,7 +37,7 @@ def worker(
 ) -> None:
     """
     One simulated user: request `url` over and over until `should_stop()` is true.
-    (scripts/stress_test.py reuses this function, so keep the signature stable.)
+    (tests/stress_test.py reuses this function, so keep the signature stable.)
 
     Several workers run at once (see --concurrency) and all write into the
     same shared results:

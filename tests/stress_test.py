@@ -2,9 +2,9 @@
 """
 Stress test: prove that deploys AND rollbacks never drop a user request.
 
-    python scripts/stress_test.py                 # 3 rounds, 8 simulated users
-    python scripts/stress_test.py --rounds 5 --concurrency 16
-    python scripts/stress_test.py -v              # also show deploy.py's logs live
+    python tests/stress_test.py                 # 3 rounds, 8 simulated users
+    python tests/stress_test.py --rounds 5 --concurrency 16
+    python tests/stress_test.py -v              # also show deploy.py's logs live
 
 WHAT IT DOES
     Sends nonstop traffic to http://localhost:8080 the whole time, while it
@@ -60,7 +60,7 @@ from pathlib import Path
 
 # The release_coordinator package lives in the project root, traffic_check.py next to this file.
 ROOT = Path(__file__).resolve().parent.parent
-sys.path[:0] = [str(ROOT), str(ROOT / "scripts")]
+sys.path[:0] = [str(ROOT), str(ROOT / "tests")]
 
 import docker  # noqa: E402
 from traffic_check import format_timeline, worker  # noqa: E402

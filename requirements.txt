@@ -1,2 +1,2 @@
-# Runs deploy.py and scripts/ on your machine: pip install -r requirements.txt
+# Runs deploy.py and tests/ on your machine: pip install -r requirements.txt
 docker>=7.1

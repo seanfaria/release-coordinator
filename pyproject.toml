@@ -27,7 +27,7 @@ ignore = [
 
 [tool.mypy]
 python_version = "3.12"
-files = ["deploy.py", "release_coordinator", "scripts", "app/main.py"]
+files = ["deploy.py", "release_coordinator", "tests", "app/main.py"]
 disallow_untyped_defs = true
 warn_unused_ignores = true
 ignore_missing_imports = true   # fastapi/pydantic are only installed inside the app image

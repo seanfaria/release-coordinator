@@ -57,7 +57,7 @@ To switch versions, `deploy.py` rewrites this file and runs `nginx -s reload`.
 6. **Verify, then drain:** the tool confirms the public URL shows the new version, then waits a few seconds before stopping the old container (SIGTERM, so it finishes its last requests).
 7. **Automatic rollback:** any failure, Ctrl-C or `kill` before step 6 completes puts the previous file back and removes the new container.
 
-**Evidence:** [scripts/stress_test.py](scripts/stress_test.py) runs 22 deploys, rollbacks and kills under constant traffic. Result: 85,768 requests, **0 errors**.
+**Evidence:** [tests/stress_test.py](tests/stress_test.py) runs 22 deploys, rollbacks and kills under constant traffic. Result: 85,768 requests, **0 errors**.
 
 ## Quick start
 
@@ -205,7 +205,7 @@ Users keep being served by the old version in every one of these cases.
 ### Stress test (zero downtime, proven)
 
 ```bash
-python scripts/stress_test.py
+python tests/stress_test.py
 ```
 
 This sends nonstop traffic to the app while it runs, three times over:
@@ -256,6 +256,6 @@ These run the linter, formatter and type checker; their settings are in `pyproje
 | `docker-compose.yml` | Runs nginx (and the optional standalone app) |
 | `nginx/upstream/active.conf` | Which version is live. Generated: not in git, created from `active.placeholder.conf` on first start, then updated by every deploy |
 | `nginx/init/` | Startup script that creates `active.conf` if it's missing |
-| `scripts/traffic_check.py` | Sends traffic during a deploy to prove nothing fails |
-| `scripts/stress_test.py` | Repeated deploys, rollbacks and kills under traffic, with PASS/FAIL |
+| `tests/traffic_check.py` | Sends traffic during a deploy to prove nothing fails |
+| `tests/stress_test.py` | Repeated deploys, rollbacks and kills under traffic, with PASS/FAIL |
 | `pyproject.toml`, `requirements-dev.txt` | Settings and tools for the code checks |
