@@ -1,0 +1,33 @@
+# Tool settings for linting, formatting and type checking.
+# Run all checks with:
+#   pip install -r requirements-dev.txt
+#   ruff check . && ruff format --check . && mypy
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "I",        # import sorting
+    "B",        # common bugs
+    "UP",       # modern Python syntax
+    "SIM",      # simplifications
+    "N",        # naming
+    "G",        # logging best practices (lazy %-formatting)
+    "LOG",      # logging misuse
+    "PL",       # pylint
+    "RUF",      # ruff-specific
+]
+ignore = [
+    "PLR2004",  # "magic value" in comparisons: HTTP codes like 200 are clearer inline
+]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["deploy.py", "release_coordinator", "scripts", "app/main.py"]
+disallow_untyped_defs = true
+warn_unused_ignores = true
+ignore_missing_imports = true   # fastapi/pydantic are only installed inside the app image

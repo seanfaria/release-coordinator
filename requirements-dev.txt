@@ -1,0 +1,5 @@
+# Developer tools (lint, format, type checks; settings in pyproject.toml): pip install -r requirements-dev.txt
+-r requirements.txt
+ruff>=0.8
+mypy>=1.13
+types-docker

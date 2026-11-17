@@ -1,0 +1,25 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Tool caches (ruff, mypy)
+.mypy_cache/
+.ruff_cache/
+
+# deploy.py runtime files:
+#   lock file that stops two deploys running at once
+.deploy.lock
+#   which version is live; rewritten on every deploy (nginx creates it from
+#   active.placeholder.conf on first start, see nginx/init/)
+nginx/upstream/active.conf
+#   temp file used while rewriting active.conf
+nginx/upstream/*.tmp
+
+# Local settings and secrets
+.env
+
+# OS / editor junk
+.DS_Store
+.idea/
+*.swp

@@ -1,0 +1,61 @@
+# -----------------------------------------------------------------------------
+# Two ways to run this project:
+#
+# A) With the Release Coordinator CLI (blue/green, zero downtime, rollback):
+#      python deploy.py --deploy v1.0.0     # starts the proxy for you if needed
+#      python deploy.py --deploy v2.0.0
+#    (`docker-compose up -d` also works; it starts only the proxy.)
+#
+# B) Compose only, no CLI (a single fixed version, good for quick local runs):
+#      docker-compose --profile standalone up -d --build
+#      APP_VERSION=v1.2.3 docker-compose --profile standalone up -d --build
+#
+# You can start with B and switch to A later: the first deploy.py run takes
+# over traffic and removes the standalone container. After that, use only A.
+# -----------------------------------------------------------------------------
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: rc-nginx            # deploy.py looks the proxy up by this name
+    ports:
+      - "${NGINX_PORT:-8080}:80"
+    environment:
+      # Have the image's entrypoint fill in NGINX_LOCAL_RESOLVERS (the
+      # container's DNS server) when rendering templates/*.template.
+      NGINX_ENTRYPOINT_LOCAL_RESOLVERS: "1"
+    volumes:
+      # Proxy rules, rendered to /etc/nginx/conf.d/default.conf at startup.
+      - ./nginx/templates:/etc/nginx/templates:ro
+      # Directory mount (not a single file) so deploy.py's atomic file swaps are
+      # visible inside the container. Holds active.conf = which version is live.
+      # Writable only so the startup script below can create active.conf on a
+      # fresh checkout (it isn't stored in git).
+      - ./nginx/upstream:/etc/nginx/upstream
+      # Startup script: creates active.conf from the placeholder if it's missing.
+      - ./nginx/init/10-default-upstream.sh:/docker-entrypoint.d/10-default-upstream.sh:ro
+    restart: unless-stopped
+
+  # Optional app container for running WITHOUT deploy.py (profile: standalone).
+  # The labels let deploy.py recognise it and replace it on the first deploy.
+  web:
+    profiles: ["standalone"]
+    build:
+      context: ./app
+      args:
+        APP_VERSION: ${APP_VERSION:-v1.0.0}
+    image: release-coordinator/web:${APP_VERSION:-v1.0.0}
+    container_name: rc-web-standalone   # the name active.placeholder.conf routes to
+    environment:
+      APP_VERSION: ${APP_VERSION:-v1.0.0}
+      FAIL_HEALTHCHECK: ${FAIL_HEALTHCHECK:-false}
+    labels:
+      rc.managed: "true"
+      rc.version: ${APP_VERSION:-v1.0.0}
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+networks:
+  default:
+    # Fixed name so deploy.py can attach app containers to it.
+    name: release-coordinator
